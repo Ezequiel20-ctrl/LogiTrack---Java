@@ -81,37 +81,50 @@ public class MenuPrincipal {
                         System.out.print("Ingrese el número de seguimiento del paquete: ");
                         String nSeg = teclado.nextLine();
                         
+                        
+                        String[] nombresEstados = {
+                            "No válido",                        
+                            "Admisión Postal",                  
+                            "En Tránsito Troncal",              
+                            "Recibido en Sucursal de Destino",   
+                            "En Distribución Final",            
+                            "Entregado con Éxito"               
+                        };
+                        
+                        
                         System.out.println("Seleccione el nuevo Estado Logístico:");
-                        System.out.println("2. En Tránsito Troncal");
-                        System.out.println("3. Recibido en Sucursal de Destino");
-                        System.out.println("4. En Distribución Final ");
-                        System.out.println("5. Entregado con Éxito ");
+                        for (int i = 2; i < nombresEstados.length; i++) {
+                            System.out.println(i + ". " + nombresEstados[i]);
+                        }
+                        
                         System.out.print("Seleccione una opción (2-5): ");
                         int nuevoEstado = Integer.parseInt(teclado.nextLine());
+                        
+                        
+                        if (nuevoEstado < 2 || nuevoEstado >= nombresEstados.length) {
+                            System.out.println("\n[Error] Opción de estado fuera de rango permitido.");
+                            break;
+                        }
+                        
                         
                         int idUsuarioAsignado = 2;
                         String datosUbicacionYEntrega = "";
 
-                        
                         if (nuevoEstado == 4) {
-                            
                             idUsuarioAsignado = 3; 
                             System.out.print("Ingrese la Sucursal desde donde sale a distribución (ej. Sucursal Frías): ");
                             datosUbicacionYEntrega = "Hacia calle desde " + teclado.nextLine();
                             
                         } else if (nuevoEstado == 5) {
-                            
                             idUsuarioAsignado = 3; 
                             System.out.print("Ingrese el Domicilio Real de entrega: ");
                             String domicilio = teclado.nextLine();
                             System.out.print("Ingrese Nombre y DNI de quién recibe el paquete: ");
                             String receptor = teclado.nextLine();
                             
-                            
                             datosUbicacionYEntrega = domicilio + " - Recibió: " + receptor;
                             
                         } else {
-                            
                             System.out.print("Ingrese la ubicación geográfica del evento (ej. Centro Logístico Tucumán): ");
                             datosUbicacionYEntrega = teclado.nextLine();
                         }
@@ -121,7 +134,7 @@ public class MenuPrincipal {
                         if (movExito) {
                             System.out.println("¡Estado actualizado e historial de auditoría guardado correctamente!");
                         } else {
-                            System.err.println("No se pudo registrar el movimiento. Verifique el código del paquete.");
+                            System.err.println("No se pudo registrar el movimiento. Verifique el código del paquete o la secuencia de estados.");
                         }
                         break;
 
