@@ -11,7 +11,7 @@ import com.logitrack.modelo.ConexionDB;
 import com.logitrack.modelo.Envio;
 import com.logitrack.modelo.Trazabilidad;
 
-public class Controlador {
+public class Controlador implements IEvidenceRepository {
 	
 	public boolean registrarAdmision (Envio envio, int idUsuario, int idEstado, String ubicacionInicial) {
 		Connection conexion = null;
@@ -89,40 +89,74 @@ public class Controlador {
 		return exito;
 	}
 	
-		public boolean registrarMovimiento(String numSeguimiento, int idUsuario, int idEstado, String ubicacion) {
-			Connection conexion = null;
-			PreparedStatement stmt = null;
-			boolean exito = false;
-
-			String sqlInsert = "INSERT INTO trazabilidad (num_seguimiento, id_usuario, id_estado, ubicacion) "
-					+ "VALUES (?, ?, ?, ?)";
-
-			try {
-				conexion = ConexionDB.abrirConexion();
-				if (conexion != null) {
-					stmt = conexion.prepareStatement(sqlInsert);
-					stmt.setString(1, numSeguimiento);
-					stmt.setInt(2, idUsuario);   
-					stmt.setInt(3, idEstado);    
-					stmt.setString(4, ubicacion); 
-
-					stmt.executeUpdate();
-					exito = true;
-					System.out.println("[Controlador] Nuevo movimiento de trazabilidad registrado con éxito.");
-				}
-			} catch (SQLException e) {
-				System.err.println("[Controlador] Error al registrar movimiento logístico.");
-				System.err.println("Detalle técnico: " + e.getMessage());
-			} finally {
-				try {
-					if (stmt != null) stmt.close();
-					if (conexion != null) conexion.close();
-				} catch (SQLException e) {
-					System.err.println("Error al cerrar recursos JDBC: " + e.getMessage());
-				}
-			}
-			return exito;
-		}
+	public boolean registrarMovimiento(String numSeguimiento, int idUsuario, int idEstadoNuevo, String ubicacion) {
+	    String sqlUltimoEstado = "SELECT id_estado FROM trazabilidad WHERE num_seguimiento = ? ORDER BY fecha_hora DESC, id_movimiento DESC LIMIT 1";
+	    String sqlInsertMovimiento = "INSERT INTO trazabilidad (num_seguimiento, id_usuario, id_estado, fecha_hora, ubicacion) VALUES (?, ?, ?, NOW(), ?)";
+	    
+	    Connection con = null;
+	    PreparedStatement psCheck = null;
+	    PreparedStatement psInsert = null;
+	    ResultSet rs = null;
+	    
+	    try {
+	        con = ConexionDB.abrirConexion();
+	        con.setAutoCommit(false); 
+	        
+	        
+	        psCheck = con.prepareStatement(sqlUltimoEstado);
+	        psCheck.setString(1, numSeguimiento);
+	        rs = psCheck.executeQuery();
+	        
+	        int estadoActual = 0;
+	        if (rs.next()) {
+	            estadoActual = rs.getInt("id_estado");
+	        } else {
+	            System.err.println("[Controlador] Error: El paquete no existe o no tiene un estado inicial de admisión.");
+	            return false;
+	        }
+	        
+	        
+	        if (idEstadoNuevo != (estadoActual + 1)) {
+	            System.err.println("\n[VALIDACIÓN RECHAZADA] Intento de salto de estado inválido.");
+	            System.err.println("Estado actual en sistema: " + estadoActual);
+	            System.err.println("Estado intentado: " + idEstadoNuevo);
+	            System.err.println("El flujo postal exige que sea secuencial (Debe ser: " + (estadoActual + 1) + ").");
+	            
+	            con.rollback(); 
+	            return false;   
+	        }
+	        
+	        
+	        psInsert = con.prepareStatement(sqlInsertMovimiento);
+	        psInsert.setString(1, numSeguimiento);
+	        psInsert.setInt(2, idUsuario);
+	        psInsert.setInt(3, idEstadoNuevo);
+	        psInsert.setString(4, ubicacion);
+	        
+	        int filasAfectadas = psInsert.executeUpdate();
+	        
+	        if (filasAfectadas > 0) {
+	            con.commit();
+	            return true;
+	        } else {
+	            con.rollback();
+	            return false;
+	        }
+	        
+	    } catch (Exception e) {
+	        System.err.println("Error en la persistencia del movimiento: " + e.getMessage());
+	        if (con != null) {
+	            try { con.rollback(); } catch (Exception ex) { ex.printStackTrace(); }
+	        }
+	        return false;
+	    } finally {
+	        
+	        try { if (rs != null) rs.close(); } catch (Exception e) {}
+	        try { if (psCheck != null) psCheck.close(); } catch (Exception e) {}
+	        try { if (psInsert != null) psInsert.close(); } catch (Exception e) {}
+	        try { if (con != null) con.close(); } catch (Exception e) {}
+	    }
+	}
 	
 	public List<Trazabilidad> consultarTrazabilidad(String numSeguimiento){
 		List<Trazabilidad> historial = new ArrayList<>();
